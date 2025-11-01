@@ -105,21 +105,23 @@ string& trim(string& s) {
 string cleanLine(string line) {
     size_t commentPos = line.find('#'); //find comments
     if (commentPos !=string::npos) {
-        line = line.substr(0, commentPos);
+        line = line.substr(0, commentPos); //only take part befor comment starts
     }
     return trim(line);
 }
 
-std::vector<std::string> parseOperands(const std::string& line) {
-    std::vector<std::string> tokens;
-    std::string cleanLine = line;
+//splits a line into meaningful tokens
+vector<string> parseOperands(const string& line) {
+    vector<string> tokens;
+    string cleanLine = line;
     for (char& c : cleanLine) {
+        //remove punctuation
         if (c == ',' || c == '(' || c == ')') {
             c = ' ';
         }
     }
-    std::stringstream ss(cleanLine);
-    std::string token;
+    stringstream ss(cleanLine);
+    string token;
     while (ss >> token) {
         tokens.push_back(token);
     }
