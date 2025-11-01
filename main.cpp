@@ -9,10 +9,7 @@
 #include <algorithm>    // For std::find_if
 #include <set>          // Used for modifying I-format
 #include <bitset>       // For generating debug string
-
-// ==========================================================
-//    DATA STRUCTURES
-// ==========================================================
+using namespace std;
 
 struct InstructionInfo {
     // Enum is nested inside the struct
@@ -76,34 +73,38 @@ std::map<std::string, InstructionInfo> instructionMap = {
     { "jal",   { "1101111", "NULL", "NULL", InstructionInfo::Format::UJ } }
 };
 
-// --- Our "Symbol Table" (for Pass 1) ---
-std::map<std::string, long> symbolTable;
+//Symbol Table
+map<string, long> symbolTable;
 
-// ==========================================================
-//    HELPER FUNCTIONS
-// ==========================================================
+//HELPER FUNCTIONS
 
-std::string& ltrim(std::string& s) {
-    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {
-        return !std::isspace(ch);
-    }));
+//remove leading spaces
+string& ltrim(string& s) {
+    s.erase(s.begin(), find_if(s.begin(), s.end(), 
+        [](unsigned char ch) {
+        return !isspace(ch); //points to first non space char
+        }) 
+        p);//erases all whitespaces from beginning
     return s;
 }
 
-std::string& rtrim(std::string& s) {
-    s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) {
-        return !std::isspace(ch);
-    }).base(), s.end());
+//remove trailing spaces
+string& rtrim(std::string& s) {
+    s.erase(find_if(s.rbegin(), s.rend(), //reverse iterators, traverse backward
+        [](unsigned char ch) {
+        return !isspace(ch);
+    }).base(), //converts reverse to normal iterator, points to where trailig spaces begin
+        s.end());
     return s;
 }
 
-std::string& trim(std::string& s) {
+string& trim(string& s) {
     return ltrim(rtrim(s));
 }
 
-std::string cleanLine(std::string line) {
-    size_t commentPos = line.find('#');
-    if (commentPos != std::string::npos) {
+string cleanLine(string line) {
+    size_t commentPos = line.find('#'); //find comments
+    if (commentPos !=string::npos) {
         line = line.substr(0, commentPos);
     }
     return trim(line);
