@@ -145,15 +145,13 @@ long stringToLong(const std::string& s) {
     }
 }
 
-/**
- * Converts a 32-bit integer to a hex string.
- * (*** MODIFIED *** to output UPPERCASE hex)
- */
+// Converts a 32-bit integer to a hex string.
 std::string toHex(uint32_t value, bool pad = true) {
     std::stringstream ss;
-    ss << "0x" << std::uppercase; // <-- FIX 1
+    // Add std::uppercase here
+    ss << "0x" << std::uppercase; 
     if (pad) {
-       ss << std::setfill('0') << std::setw(8); // Pad to 8 digits
+       ss << std::setfill('0') << std::setw(8); 
     }
     ss << std::hex << value;
     return ss.str();
