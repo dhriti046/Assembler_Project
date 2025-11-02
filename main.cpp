@@ -128,7 +128,6 @@ vector<string> parseOperands(const string& line) {
     return tokens;
 }
 
-
 int registerToInt(const string& reg) {
     static const unordered_map<string, int> regMap = {
         {"zero", 0}, {"ra", 1}, {"sp", 2}, {"gp", 3}, {"tp", 4},
@@ -154,7 +153,6 @@ int registerToInt(const string& reg) {
     return 0;
 }
 
-
 long stringToLong(const string& s) {
     try {
         if (s.rfind("0x", 0) == 0 || s.rfind("0X", 0) == 0) {
@@ -179,12 +177,10 @@ string toHex(uint64_t value, bool pad = true) {
     return ss.str();
 }
 
-/**
- * Creates the compressed assembly string (e.g., "add x1,x2,x3")
- */
+// Creates the compressed assembly string (e.g., "add x1,x2,x3")
 string getCompressedAssembly(const vector<string>& operands) {
     if (operands.empty()) return "";
-
+    
     string instName = operands[0];
     const set<string> loadLike = {"lb", "ld", "lh", "lw", "jalr"};
     const set<string> storeLike = {"sb", "sw", "sh", "sd"};
@@ -211,9 +207,7 @@ string getCompressedAssembly(const vector<string>& operands) {
     return result;
 }
 
-/**
- * Creates the debug string (e.g., "# 0110011-000-...")
- */
+// Creates the debug string
 string getDebugString(const InstructionInfo& info, const vector<string>& operands, long offset = 0) {
     string opcode = info.opcode;
     string funct3 = info.funct3;
