@@ -158,22 +158,22 @@ int registerToInt(const string& reg) {
 long stringToLong(const string& s) {
     try {
         if (s.rfind("0x", 0) == 0 || s.rfind("0X", 0) == 0) {
-            return stol(s, nullptr, 16);
+            return stol(s, nullptr, 16); //interpret as hexadecimal
         }
-        return stol(s, nullptr, 10);
+        return stol(s, nullptr, 10); //interpret as decimal
     } catch (const invalid_argument& e) {
         cerr << "Error: Invalid immediate value '" << s << "'" << endl;
         return 0;
     }
 }
 
-// Converts a 32-bit integer to a hex string.
-string toHex(uint32_t value, bool pad = true) {
+// Converts 64-bit integer to a hex string.
+string toHex(uint64_t value, bool pad = true) {
     stringstream ss;
     // Add uppercase here
     ss << "0x" << uppercase; 
     if (pad) {
-       ss << setfill('0') << setw(8); 
+       ss << setfill('0') << setw(8); //fill empty places with zero
     }
     ss << hex << value;
     return ss.str();
