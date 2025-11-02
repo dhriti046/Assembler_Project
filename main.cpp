@@ -6,26 +6,23 @@
 #include <map>
 #include <iomanip>      // For hex formatting (setw, setfill)
 #include <cstdint>      // For uint32_t (32-bit unsigned integer)
-#include <algorithm>    // For  find_if
+#include <algorithm>    // For std::find_if
 #include <set>          // Used for modifying I-format
 #include <bitset>       // For generating debug string
 using namespace std;
-// ==========================================================
-//    DATA STRUCTURES
-// ==========================================================
 
 struct InstructionInfo {
     // Enum is nested inside the struct
     enum class Format { R, I, S, SB, U, UJ };
 
-     string opcode;
-     string funct3;
-     string funct7;
+    std::string opcode;
+    std::string funct3;
+    std::string funct7;
     Format format; 
 };
 
 // --- Our "Instruction Brain" ---
- map< string, InstructionInfo> instructionMap = {
+std::map<std::string, InstructionInfo> instructionMap = {
     // R-Format
     { "add",   { "0110011", "000", "0000000", InstructionInfo::Format::R } },
     { "addw",  { "0111011", "000", "0000000", InstructionInfo::Format::R } },
@@ -76,97 +73,102 @@ struct InstructionInfo {
     { "jal",   { "1101111", "NULL", "NULL", InstructionInfo::Format::UJ } }
 };
 
-// --- Our "Symbol Table" (for Pass 1) ---
- map< string, long> symbolTable;
+//Symbol Table
+map<string, long> symbolTable;
 
-// ==========================================================
-//    HELPER FUNCTIONS
-// ==========================================================
+//HELPER FUNCTIONS
 
-//trim the left spaces before instruction
- string& ltrim( string& s) {
-    s.erase(s.begin(),  find_if(s.begin(), s.end(), [](unsigned char ch) {
-        return ! isspace(ch);
-    }));
+//remove leading spaces
+std::string& ltrim(std::string& s) {
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), 
+        [](unsigned char ch) {
+            return !std::isspace(ch); // points to first non-space char
+        })
+    );
     return s;
 }
 
- string& rtrim( string& s) {
-    s.erase( find_if(s.rbegin(), s.rend(), [](unsigned char ch) {
-        return ! isspace(ch);
-    }).base(), s.end());
+//remove trailing spaces
+string& rtrim(std::string& s) {
+    s.erase(find_if(s.rbegin(), s.rend(), //reverse iterators, traverse backward
+        [](unsigned char ch) {
+        return !isspace(ch);
+    }).base(), //converts reverse to normal iterator, points to where trailig spaces begin
+        s.end());
     return s;
 }
 
- string& trim( string& s) {
+string& trim(string& s) {
     return ltrim(rtrim(s));
 }
 
- string cleanLine( string line) {
-    size_t commentPos = line.find('#');
-    if (commentPos !=  string::npos) {
-        line = line.substr(0, commentPos);
+string cleanLine(string line) {
+    size_t commentPos = line.find('#'); //find comments
+    if (commentPos !=string::npos) {
+        line = line.substr(0, commentPos); //only take part befor comment starts
     }
     return trim(line);
 }
 
- vector< string> parseOperands(const  string& line) {
-     vector< string> tokens;
-     string cleanLine = line;
+//splits a line into meaningful tokens
+vector<string> parseOperands(const string& line) {
+    vector<string> tokens;
+    string cleanLine = line;
     for (char& c : cleanLine) {
+        //remove punctuation
         if (c == ',' || c == '(' || c == ')') {
             c = ' ';
         }
     }
-     stringstream ss(cleanLine);
-     string token;
+    stringstream ss(cleanLine);
+    string token;
     while (ss >> token) {
         tokens.push_back(token);
     }
     return tokens;
 }
 
-int registerToInt(const  string& reg) {
+int registerToInt(const std::string& reg) {
     if (reg[0] == 'x') {
-        return  stoi(reg.substr(1));
+        return std::stoi(reg.substr(1));
     }
     // TODO: Add ABI names like "ra", "sp", "a0", etc.
     return 0; // Error or x0
 }
 
-long stringToLong(const  string& s) {
+long stringToLong(const std::string& s) {
     try {
         if (s.rfind("0x", 0) == 0 || s.rfind("0X", 0) == 0) {
-            return  stol(s, nullptr, 16);
+            return std::stol(s, nullptr, 16);
         }
-        return  stol(s, nullptr, 10);
-    } catch (const  invalid_argument& e) {
-         cerr << "Error: Invalid immediate value '" << s << "'" <<  endl;
+        return std::stol(s, nullptr, 10);
+    } catch (const std::invalid_argument& e) {
+        std::cerr << "Error: Invalid immediate value '" << s << "'" << std::endl;
         return 0;
     }
 }
 
 // Converts a 32-bit integer to a hex string.
- string toHex(uint32_t value, bool pad = true) {
-     stringstream ss;
-    // Add  uppercase here
-    ss << "0x" <<  uppercase; 
+std::string toHex(uint32_t value, bool pad = true) {
+    std::stringstream ss;
+    // Add std::uppercase here
+    ss << "0x" << std::uppercase; 
     if (pad) {
-       ss <<  setfill('0') <<  setw(8); 
+       ss << std::setfill('0') << std::setw(8); 
     }
-    ss <<  hex << value;
+    ss << std::hex << value;
     return ss.str();
 }
 
 /**
  * Creates the compressed assembly string (e.g., "add x1,x2,x3")
  */
- string getCompressedAssembly(const  vector< string>& operands) {
+std::string getCompressedAssembly(const std::vector<std::string>& operands) {
     if (operands.empty()) return "";
 
-     string instName = operands[0];
-    const  set< string> loadLike = {"lb", "ld", "lh", "lw", "jalr"};
-    const  set< string> storeLike = {"sb", "sw", "sh", "sd"};
+    std::string instName = operands[0];
+    const std::set<std::string> loadLike = {"lb", "ld", "lh", "lw", "jalr"};
+    const std::set<std::string> storeLike = {"sb", "sw", "sh", "sd"};
 
     if (loadLike.count(instName)) {
         // Format: lw rd,imm(rs1)
@@ -183,7 +185,7 @@ long stringToLong(const  string& s) {
 
     // Default R-type, I-type (arith), SB-type
     // Format: add rd,rs1,rs2
-     string result = instName + " " + operands[1];
+    std::string result = instName + " " + operands[1];
     for (size_t i = 2; i < operands.size(); ++i) {
         result += "," + operands[i];
     }
@@ -193,52 +195,52 @@ long stringToLong(const  string& s) {
 /**
  * Creates the debug string (e.g., "# 0110011-000-...")
  */
- string getDebugString(const InstructionInfo& info, const  vector< string>& operands, long offset = 0) {
-     string opcode = info.opcode;
-     string funct3 = info.funct3;
-     string funct7 = info.funct7;
-     string rd_s = "NULL", rs1_s = "NULL", rs2_s = "NULL", imm_s = "NULL";
+std::string getDebugString(const InstructionInfo& info, const std::vector<std::string>& operands, long offset = 0) {
+    std::string opcode = info.opcode;
+    std::string funct3 = info.funct3;
+    std::string funct7 = info.funct7;
+    std::string rd_s = "NULL", rs1_s = "NULL", rs2_s = "NULL", imm_s = "NULL";
 
-    const  set< string> loadLike = {"lb", "ld", "lh", "lw", "jalr"};
+    const std::set<std::string> loadLike = {"lb", "ld", "lh", "lw", "jalr"};
 
     try {
         if (info.format == InstructionInfo::Format::R) {
-            rd_s =  bitset<5>(registerToInt(operands[1])).to_string();
-            rs1_s =  bitset<5>(registerToInt(operands[2])).to_string();
-            rs2_s =  bitset<5>(registerToInt(operands[3])).to_string();
+            rd_s = std::bitset<5>(registerToInt(operands[1])).to_string();
+            rs1_s = std::bitset<5>(registerToInt(operands[2])).to_string();
+            rs2_s = std::bitset<5>(registerToInt(operands[3])).to_string();
         } 
         else if (info.format == InstructionInfo::Format::I) {
             if (loadLike.count(operands[0])) { // lw rd, imm(rs1)
-                rd_s =  bitset<5>(registerToInt(operands[1])).to_string();
-                rs1_s =  bitset<5>(registerToInt(operands[3])).to_string();
-                imm_s =  bitset<12>(stringToLong(operands[2])).to_string();
+                rd_s = std::bitset<5>(registerToInt(operands[1])).to_string();
+                rs1_s = std::bitset<5>(registerToInt(operands[3])).to_string();
+                imm_s = std::bitset<12>(stringToLong(operands[2])).to_string();
             } else { // addi rd, rs1, imm
-                rd_s =  bitset<5>(registerToInt(operands[1])).to_string();
-                rs1_s =  bitset<5>(registerToInt(operands[2])).to_string();
-                imm_s =  bitset<12>(stringToLong(operands[3])).to_string();
+                rd_s = std::bitset<5>(registerToInt(operands[1])).to_string();
+                rs1_s = std::bitset<5>(registerToInt(operands[2])).to_string();
+                imm_s = std::bitset<12>(stringToLong(operands[3])).to_string();
             }
         }
         else if (info.format == InstructionInfo::Format::S) { // sw rs2, imm(rs1)
-            rs1_s =  bitset<5>(registerToInt(operands[3])).to_string();
-            rs2_s =  bitset<5>(registerToInt(operands[1])).to_string();
-            imm_s =  bitset<12>(stringToLong(operands[2])).to_string();
+            rs1_s = std::bitset<5>(registerToInt(operands[3])).to_string();
+            rs2_s = std::bitset<5>(registerToInt(operands[1])).to_string();
+            imm_s = std::bitset<12>(stringToLong(operands[2])).to_string();
         }
         else if (info.format == InstructionInfo::Format::SB) { // beq rs1, rs2, label
-            rs1_s =  bitset<5>(registerToInt(operands[1])).to_string();
-            rs2_s =  bitset<5>(registerToInt(operands[2])).to_string();
-            imm_s =  bitset<13>(offset).to_string(); // Show 13-bit offset
+            rs1_s = std::bitset<5>(registerToInt(operands[1])).to_string();
+            rs2_s = std::bitset<5>(registerToInt(operands[2])).to_string();
+            imm_s = std::bitset<13>(offset).to_string(); // Show 13-bit offset
         }
         else if (info.format == InstructionInfo::Format::U) { // lui rd, imm
-            rd_s =  bitset<5>(registerToInt(operands[1])).to_string();
-            imm_s =  bitset<20>(stringToLong(operands[2])).to_string(); // <-- FIX 2
+            rd_s = std::bitset<5>(registerToInt(operands[1])).to_string();
+            imm_s = std::bitset<20>(stringToLong(operands[2])).to_string(); // <-- FIX 2
         }
         else if (info.format == InstructionInfo::Format::UJ) { // jal rd, label
-            rd_s =  bitset<5>(registerToInt(operands[1])).to_string();
-            imm_s =  bitset<21>(offset).to_string(); // Show 21-bit offset
+            rd_s = std::bitset<5>(registerToInt(operands[1])).to_string();
+            imm_s = std::bitset<21>(offset).to_string(); // Show 21-bit offset
         }
-    } catch (const  exception& e) {
+    } catch (const std::exception& e) {
         // Handle error if parsing fails
-         cerr << "Warning: Could not fully parse debug string for " << operands[0] <<  endl;
+        std::cerr << "Warning: Could not fully parse debug string for " << operands[0] << std::endl;
     }
 
     // Format: # opcode-funct3-funct7-rd-rs1-rs2-immediate
@@ -250,15 +252,15 @@ long stringToLong(const  string& s) {
 // ==========================================================
 
 // R-Format
-uint32_t assemble_R_format(const InstructionInfo& info, const  vector< string>& operands) {
+uint32_t assemble_R_format(const InstructionInfo& info, const std::vector<std::string>& operands) {
     uint32_t machineCode = 0;
     uint32_t rd  = registerToInt(operands[1]);
     uint32_t rs1 = registerToInt(operands[2]);
     uint32_t rs2 = registerToInt(operands[3]);
     
-    uint32_t opcode =  stoul(info.opcode, nullptr, 2);
-    uint32_t funct3 =  stoul(info.funct3, nullptr, 2);
-    uint32_t funct7 =  stoul(info.funct7, nullptr, 2);
+    uint32_t opcode = std::stoul(info.opcode, nullptr, 2);
+    uint32_t funct3 = std::stoul(info.funct3, nullptr, 2);
+    uint32_t funct7 = std::stoul(info.funct7, nullptr, 2);
 
     machineCode |= opcode;              // bits 0-6
     machineCode |= (rd  << 7);           // bits 7-11
@@ -271,12 +273,12 @@ uint32_t assemble_R_format(const InstructionInfo& info, const  vector< string>& 
 }
 
 // I-Format (Handles both arithmetic and load syntaxes)
-uint32_t assemble_I_format(const InstructionInfo& info, const  vector< string>& operands) {
+uint32_t assemble_I_format(const InstructionInfo& info, const std::vector<std::string>& operands) {
     uint32_t machineCode = 0;
     uint32_t rd = 0, rs1 = 0;
     long imm = 0;
 
-    const  set< string> loadLike = {"lb", "ld", "lh", "lw", "jalr"};
+    const std::set<std::string> loadLike = {"lb", "ld", "lh", "lw", "jalr"};
 
     if (loadLike.count(operands[0])) { // lw rd, imm(rs1)
         rd  = registerToInt(operands[1]);
@@ -288,8 +290,8 @@ uint32_t assemble_I_format(const InstructionInfo& info, const  vector< string>& 
         imm = stringToLong(operands[3]);
     }
     
-    uint32_t opcode =  stoul(info.opcode, nullptr, 2);
-    uint32_t funct3 =  stoul(info.funct3, nullptr, 2);
+    uint32_t opcode = std::stoul(info.opcode, nullptr, 2);
+    uint32_t funct3 = std::stoul(info.funct3, nullptr, 2);
     
     machineCode |= opcode;              // bits 0-6
     machineCode |= (rd  << 7);           // bits 7-11
@@ -301,7 +303,7 @@ uint32_t assemble_I_format(const InstructionInfo& info, const  vector< string>& 
 }
 
 // S-Format (Stores)
-uint32_t assemble_S_format(const InstructionInfo& info, const  vector< string>& operands) {
+uint32_t assemble_S_format(const InstructionInfo& info, const std::vector<std::string>& operands) {
     uint32_t machineCode = 0;
 
     // S-Format: [imm[11:5] | rs2 | rs1 | funct3 | imm[4:0] | opcode]
@@ -309,8 +311,8 @@ uint32_t assemble_S_format(const InstructionInfo& info, const  vector< string>& 
     long imm     = stringToLong(operands[2]);
     uint32_t rs1 = registerToInt(operands[3]);
 
-    uint32_t opcode =  stoul(info.opcode, nullptr, 2);
-    uint32_t funct3 =  stoul(info.funct3, nullptr, 2);
+    uint32_t opcode = std::stoul(info.opcode, nullptr, 2);
+    uint32_t funct3 = std::stoul(info.funct3, nullptr, 2);
 
     uint32_t imm_11_5 = (imm >> 5) & 0x7F; // imm[11:5]
     uint32_t imm_4_0  = imm & 0x1F;       // imm[4:0]
@@ -327,15 +329,15 @@ uint32_t assemble_S_format(const InstructionInfo& info, const  vector< string>& 
 
 
 // SB-Format (Branches)
-uint32_t assemble_SB_format(const InstructionInfo& info, const  vector< string>& operands, long currentAddress, const  map< string, long>& symbolTable) {
+uint32_t assemble_SB_format(const InstructionInfo& info, const std::vector<std::string>& operands, long currentAddress, const std::map<std::string, long>& symbolTable) {
     uint32_t machineCode = 0;
 
     uint32_t rs1 = registerToInt(operands[1]);
     uint32_t rs2 = registerToInt(operands[2]);
     
-     string label = operands[3];
+    std::string label = operands[3];
     if (symbolTable.find(label) == symbolTable.end()) {
-         cerr << "Error: Undefined label '" << label << "'" <<  endl;
+        std::cerr << "Error: Undefined label '" << label << "'" << std::endl;
         return 0xDEADBEEF;
     }
     long labelAddress = symbolTable.at(label);
@@ -346,8 +348,8 @@ uint32_t assemble_SB_format(const InstructionInfo& info, const  vector< string>&
     uint32_t imm_10_5 = (offset >> 5) & 0x3F; // imm[10:5]
     uint32_t imm_4_1 = (offset >> 1) & 0xF;   // imm[4:1]
 
-    uint32_t opcode =  stoul(info.opcode, nullptr, 2);
-    uint32_t funct3 =  stoul(info.funct3, nullptr, 2);
+    uint32_t opcode = std::stoul(info.opcode, nullptr, 2);
+    uint32_t funct3 = std::stoul(info.funct3, nullptr, 2);
 
     machineCode |= opcode;              // bits 0-6
     machineCode |= (imm_11 << 7);       // bit 7 (imm[11])
@@ -362,13 +364,13 @@ uint32_t assemble_SB_format(const InstructionInfo& info, const  vector< string>&
 }
 
 // U-Format (lui, auipc)
-uint32_t assemble_U_format(const InstructionInfo& info, const  vector< string>& operands) {
+uint32_t assemble_U_format(const InstructionInfo& info, const std::vector<std::string>& operands) {
     uint32_t machineCode = 0;
 
     uint32_t rd  = registerToInt(operands[1]);
     long imm     = stringToLong(operands[2]);
 
-    uint32_t opcode =  stoul(info.opcode, nullptr, 2);
+    uint32_t opcode = std::stoul(info.opcode, nullptr, 2);
     
     machineCode |= opcode;              // bits 0-6
     machineCode |= (rd << 7);           // bits 7-11
@@ -379,14 +381,14 @@ uint32_t assemble_U_format(const InstructionInfo& info, const  vector< string>& 
 
 
 // UJ-Format (jal)
-uint32_t assemble_UJ_format(const InstructionInfo& info, const  vector< string>& operands, long currentAddress, const  map< string, long>& symbolTable) {
+uint32_t assemble_UJ_format(const InstructionInfo& info, const std::vector<std::string>& operands, long currentAddress, const std::map<std::string, long>& symbolTable) {
     uint32_t machineCode = 0;
 
     uint32_t rd = registerToInt(operands[1]);
     
-     string label = operands[2];
+    std::string label = operands[2];
      if (symbolTable.find(label) == symbolTable.end()) {
-         cerr << "Error: Undefined label '" << label << "'" <<  endl;
+        std::cerr << "Error: Undefined label '" << label << "'" << std::endl;
         return 0xDEADBEEF;
     }
     long labelAddress = symbolTable.at(label);
@@ -397,7 +399,7 @@ uint32_t assemble_UJ_format(const InstructionInfo& info, const  vector< string>&
     uint32_t imm_11 = (offset >> 11) & 1;     // imm[11]
     uint32_t imm_10_1 = (offset >> 1) & 0x3FF;  // imm[10:1]
     
-    uint32_t opcode =  stoul(info.opcode, nullptr, 2);
+    uint32_t opcode = std::stoul(info.opcode, nullptr, 2);
 
     machineCode |= opcode;              // bits 0-6
     machineCode |= (rd << 7);           // bits 7-11
@@ -416,7 +418,7 @@ long lastOffset = 0;
 /**
  * Main assembler "switch" function.
  */
-uint32_t assemble(const InstructionInfo& info, const  vector< string>& operands, long currentAddress, const  map< string, long>& symbolTable) {
+uint32_t assemble(const InstructionInfo& info, const std::vector<std::string>& operands, long currentAddress, const std::map<std::string, long>& symbolTable) {
     lastOffset = 0; // Reset offset
     switch (info.format) {
         case InstructionInfo::Format::R:
@@ -427,7 +429,7 @@ uint32_t assemble(const InstructionInfo& info, const  vector< string>& operands,
             return assemble_S_format(info, operands);
         case InstructionInfo::Format::SB:
         {
-             string label = operands[3];
+            std::string label = operands[3];
             if (symbolTable.count(label)) {
                 lastOffset = symbolTable.at(label) - currentAddress;
             }
@@ -437,14 +439,14 @@ uint32_t assemble(const InstructionInfo& info, const  vector< string>& operands,
             return assemble_U_format(info, operands);
         case InstructionInfo::Format::UJ:
         {
-             string label = operands[2];
+            std::string label = operands[2];
             if (symbolTable.count(label)) {
                 lastOffset = symbolTable.at(label) - currentAddress;
             }
             return assemble_UJ_format(info, operands, currentAddress, symbolTable);
         }
         default:
-             cerr << "Error: Unknown instruction format for " << operands[0] <<  endl;
+            std::cerr << "Error: Unknown instruction format for " << operands[0] << std::endl;
             return 0xDEADBEEF; // Error code
     }
 }
@@ -454,23 +456,24 @@ uint32_t assemble(const InstructionInfo& info, const  vector< string>& operands,
 // ==========================================================
 
 int main() {
-    string inputFilename = "input.asm";
-    string outputFilename = "output.mc";
+    std::string inputFilename = "input.asm";
+    std::string outputFilename = "output.mc";
 
     // --- PASS 1: Build Symbol Table ---
-    //cout << "Starting Pass 1: Building Symbol Table..." <<  endl;
-    ifstream inputFile_pass1(inputFilename);
-    string line;
+    std::cout << "Starting Pass 1: Building Symbol Table..." << std::endl;
+    std::ifstream inputFile_pass1(inputFilename);
+    std::string line;
+
     long currentAddress = 0x00000000; // Code starts at 0x0
     long dataAddress = 0x10000000;    // Data starts at 0x10000000
     bool inTextSegment = true;        // Assume .text segment by default
 
     if (!inputFile_pass1.is_open()) {
-        cerr << "Error: Could not open input file " << inputFilename <<  endl;
+        std::cerr << "Error: Could not open input file " << inputFilename << std::endl;
         return 1;
     }
 
-    while ( getline(inputFile_pass1, line)) {
+    while (std::getline(inputFile_pass1, line)) {
         line = cleanLine(line);
 
         if (line == ".data") {
@@ -483,8 +486,8 @@ int main() {
         }
 
         size_t colonPos = line.find(':');
-        if (colonPos !=  string::npos) {
-             string label = line.substr(0, colonPos);
+        if (colonPos != std::string::npos) {
+            std::string label = line.substr(0, colonPos);
             label = trim(label);
             symbolTable[label] = inTextSegment ? currentAddress : dataAddress;
             line = line.substr(colonPos + 1);
@@ -501,41 +504,41 @@ int main() {
     }
     inputFile_pass1.close();
 
-     cout << "Pass 1 complete. Symbol Table:" <<  endl;
+    std::cout << "Pass 1 complete. Symbol Table:" << std::endl;
     for (const auto& [label, address] : symbolTable) {
-         cout << "  " << label << ": " << toHex(address, false) <<  endl;
+        std::cout << "  " << label << ": " << toHex(address, false) << std::endl;
     }
 
     // --- PASS 2: Generate Machine Code ---
-     cout << "Starting Pass 2: Generating Machine Code..." <<  endl;
-     ifstream inputFile_pass2(inputFilename);
-     ofstream outputFile(outputFilename);
+    std::cout << "Starting Pass 2: Generating Machine Code..." << std::endl;
+    std::ifstream inputFile_pass2(inputFilename);
+    std::ofstream outputFile(outputFilename);
     
     currentAddress = 0x00000000; // Reset for Pass 2
     inTextSegment = true;
 
     if (!inputFile_pass2.is_open()) {
-         cerr << "Error: Could not open input file " << inputFilename <<  endl;
+        std::cerr << "Error: Could not open input file " << inputFilename << std::endl;
         return 1;
     }
     if (!outputFile.is_open()) {
-         cerr << "Error: Could not open output file " << outputFilename <<  endl;
+        std::cerr << "Error: Could not open output file " << outputFilename << std::endl;
         return 1;
     }
 
     // Pre-read file to map addresses to original line text
     // (This block is corrected for the compiler error)
-     map<long,  string> originalLines;
+    std::map<long, std::string> originalLines;
     long tempAddr = 0x00000000;
-     ifstream tempInputFile(inputFilename);
-    while( getline(tempInputFile, line)) {
-         string originalLine = line; 
-         string cleaned = cleanLine(line);
-         string afterColon; 
+    std::ifstream tempInputFile(inputFilename);
+    while(std::getline(tempInputFile, line)) {
+        std::string originalLine = line; 
+        std::string cleaned = cleanLine(line);
+        std::string afterColon; 
         bool isLabelOnly = false;
 
         size_t colonPos = cleaned.find(':');
-        if (colonPos !=  string::npos) {
+        if (colonPos != std::string::npos) {
             
             afterColon = cleaned.substr(colonPos + 1); 
             if (trim(afterColon).empty()) { 
@@ -555,14 +558,14 @@ int main() {
 
 
     // Now, the real Pass 2
-    while ( getline(inputFile_pass2, line)) {
-         string originalFullLine = line; 
-         string cleaned = cleanLine(line);
+    while (std::getline(inputFile_pass2, line)) {
+        std::string originalFullLine = line; 
+        std::string cleaned = cleanLine(line);
 
         if (cleaned == ".data") { inTextSegment = false; continue; }
         if (cleaned == ".text") { inTextSegment = true; continue; }
 
-        if (cleaned.find(':') !=  string::npos) {
+        if (cleaned.find(':') != std::string::npos) {
             cleaned = cleaned.substr(cleaned.find(':') + 1);
             cleaned = trim(cleaned);
         }
@@ -570,31 +573,31 @@ int main() {
         if (cleaned.empty()) continue;
 
         if (inTextSegment) {
-             vector< string> operands = parseOperands(cleaned);
+            std::vector<std::string> operands = parseOperands(cleaned);
             if (operands.empty()) continue;
 
-             string instName = operands[0];
+            std::string instName = operands[0];
             if (instructionMap.count(instName)) {
                 
                 // 1. Assemble the machine code
                 uint32_t machineCode = assemble(instructionMap[instName], operands, currentAddress, symbolTable);
                 
                 // 2. Get compressed assembly string
-                 string compressedAsm = getCompressedAssembly(operands);
+                std::string compressedAsm = getCompressedAssembly(operands);
 
                 // 3. Get debug string (pass 'lastOffset' for branches/jumps)
-                 string debugString = getDebugString(instructionMap[instName], operands, lastOffset);
+                std::string debugString = getDebugString(instructionMap[instName], operands, lastOffset);
 
                 // 4. Write the formatted line
                 outputFile << toHex(currentAddress, false) << " " // false = don't pad address
                            << toHex(machineCode, true) << " , "   // true = pad machine code
                            << compressedAsm << " "
                            << debugString
-                           <<  endl;
+                           << std::endl;
                 
                 currentAddress += 4;
             } else {
-                 cerr << "Warning: Skipping unknown instruction '" << instName << "'" <<  endl;
+                std::cerr << "Warning: Skipping unknown instruction '" << instName << "'" << std::endl;
             }
         } else {
             // TODO: Handle data segment output
@@ -602,10 +605,12 @@ int main() {
     }
     
     // Add termination code
-    outputFile << toHex(currentAddress, false) << " 0xFEEDC0DE" << " # End of text segment" <<  endl;
+    outputFile << toHex(currentAddress, false) << " 0xFEEDC0DE" << " # End of text segment" << std::endl;
+
     inputFile_pass2.close();
     outputFile.close();
-    cout << "Pass 2 complete. Output written to " << outputFilename <<  endl;
+
+    std::cout << "Pass 2 complete. Output written to " << outputFilename << std::endl;
 
     return 0;
 }
