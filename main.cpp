@@ -166,7 +166,7 @@ long stringToLong(const string& s) {
 }
 
 // Converts 64-bit integer to a hex string.
-string toHex(uint64_t value, bool pad = true) {
+string toHex(uint32_t value, bool pad = true) {
     stringstream ss;
     // Add uppercase here
     ss << "0x" << uppercase; 
@@ -194,7 +194,7 @@ string getCompressedAssembly(const vector<string>& operands) {
         return instName + " " + operands[1] + "," + operands[2] + "(" + operands[3] + ")";
     }
     if (instName == "jal" && operands.size() == 3) {
-        // Format: jal rd,label
+        // Format: jal rd, label
         return instName + " " + operands[1] + "," + operands[2];
     }
 
@@ -245,7 +245,7 @@ string getDebugString(const InstructionInfo& info, const vector<string>& operand
         }
         else if (info.format == InstructionInfo::Format::U) { // lui rd, imm
             rd_s = bitset<5>(registerToInt(operands[1])).to_string();
-            imm_s = bitset<20>(stringToLong(operands[2])).to_string(); // <-- FIX 2
+            imm_s = bitset<20>(stringToLong(operands[2])).to_string(); 
         }
         else if (info.format == InstructionInfo::Format::UJ) { // jal rd, label
             rd_s = bitset<5>(registerToInt(operands[1])).to_string();
@@ -260,9 +260,7 @@ string getDebugString(const InstructionInfo& info, const vector<string>& operand
     return "# " + opcode + "-" + funct3 + "-" + funct7 + "-" + rd_s + "-" + rs1_s + "-" + rs2_s + "-" + imm_s;
 }
 
-// ==========================================================
-//    ASSEMBLY FUNCTIONS (THE CORE LOGIC)
-// ==========================================================
+//    ASSEMBLY FUNCTIONS (THE CORE LOGIC
 
 // R-Format
 uint32_t assemble_R_format(const InstructionInfo& info, const vector<string>& operands) {
@@ -428,9 +426,8 @@ uint32_t assemble_UJ_format(const InstructionInfo& info, const vector<string>& o
 // so getDebugString can access it.
 long lastOffset = 0; 
 
-/**
- * Main assembler "switch" function.
- */
+//Main assembler "switch" function.
+ 
 uint32_t assemble(const InstructionInfo& info, const vector<string>& operands, long currentAddress, const map<string, long>& symbolTable) {
     lastOffset = 0; // Reset offset
     switch (info.format) {
@@ -464,15 +461,13 @@ uint32_t assemble(const InstructionInfo& info, const vector<string>& operands, l
     }
 }
 
-// ==========================================================
 //    MAIN FUNCTION (PASS 1 & 2)
-// ==========================================================
 
 int main() {
     string inputFilename = "input.asm";
     string outputFilename = "output.mc";
 
-    // --- PASS 1: Build Symbol Table ---
+    //Build Symbol Table
     cout << "Starting Pass 1: Building Symbol Table..." << endl;
     ifstream inputFile_pass1(inputFilename);
     string line;
@@ -502,7 +497,7 @@ int main() {
         if (colonPos != string::npos) {
             string label = line.substr(0, colonPos);
             label = trim(label);
-            symbolTable[label] = inTextSegment ? currentAddress : dataAddress;
+            symbolTable[label] = inTextSegment ? currentAddress: dataAddress;
             line = line.substr(colonPos + 1);
             line = trim(line);
         }
@@ -518,11 +513,11 @@ int main() {
     inputFile_pass1.close();
 
     cout << "Pass 1 complete. Symbol Table:" << endl;
-    for (const auto& [label, address] : symbolTable) {
+    for (const auto& [label, address]: symbolTable) {
         cout << "  " << label << ": " << toHex(address, false) << endl;
     }
 
-    // --- PASS 2: Generate Machine Code ---
+    //Generate Machine Code ---
     cout << "Starting Pass 2: Generating Machine Code..." << endl;
     ifstream inputFile_pass2(inputFilename);
     ofstream outputFile(outputFilename);
