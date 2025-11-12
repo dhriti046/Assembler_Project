@@ -7,7 +7,7 @@ The assembler correctly handles labels, instruction encoding, and data directive
 Features:-
 Two-Pass Design: Correctly resolves forward and backward label references for all branch and jump instructions.
 
-C++ Implementation: A clean, single-file C++17 implementation.
+C++ Implementation: A clean, single-file C++17 implementation(in main.cpp file)
 
 Detailed Output: Generates machine code, a compressed assembly line, and a detailed 6 or 7-field debug string for each instruction, as specified in the project requirements.
 
