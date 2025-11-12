@@ -212,8 +212,78 @@ string getCompressedAssembly(vector<string>& operands) {
     }
     return result;
 }
+string getDebugString(InstructionInfo& info, vector<string>& operands, long offset = 0) 
+{
+    string opcode = info.opcode;
+    string funct3 = info.funct3;
+    string funct7 = info.funct7;
+    string rd_s = "NULL", rs1_s = "NULL", rs2_s = "NULL", imm_s = "NULL";
+    const set<string> loadLike = {"lb", "ld", "lh", "lw", "jalr"};
 
+    if (info.format == InstructionInfo::Format::R) 
+    {
+        rd_s = bitset<5>(registerToInt(operands[1])).to_string();
+        rs1_s = bitset<5>(registerToInt(operands[2])).to_string();
+        rs2_s = bitset<5>(registerToInt(operands[3])).to_string();
+        // imm_s remains "NULL"
+    } 
+    else if (info.format == InstructionInfo::Format::I) 
+    {
+        if (loadLike.count(operands[0])) 
+        { // lw rd, imm(rs1)
+            rd_s = bitset<5>(registerToInt(operands[1])).to_string();
+            rs1_s = bitset<5>(registerToInt(operands[3])).to_string();
+            imm_s = bitset<12>(stringToLong(operands[2])).to_string();
+        } 
+        else { // addi rd, rs1, imm
+            rd_s = bitset<5>(registerToInt(operands[1])).to_string();
+            rs1_s = bitset<5>(registerToInt(operands[2])).to_string();
+            imm_s = bitset<12>(stringToLong(operands[3])).to_string();
+        }
+        // funct7 remains "NULL"
+    }
+    else if (info.format == InstructionInfo::Format::S) 
+    { // sw rs2, imm(rs1)
+        rs1_s = bitset<5>(registerToInt(operands[3])).to_string();
+        rs2_s = bitset<5>(registerToInt(operands[1])).to_string();
+        imm_s = bitset<12>(stringToLong(operands[2])).to_string();
+        // funct7 remains "NULL"
+    }
+    else if (info.format == InstructionInfo::Format::SB) 
+    { // beq rs1, rs2, label
+        rs1_s = bitset<5>(registerToInt(operands[1])).to_string();
+        rs2_s = bitset<5>(registerToInt(operands[2])).to_string();
+        imm_s = bitset<13>(offset).to_string();
+        // funct7 remains "NULL"
+    }
+    else if (info.format == InstructionInfo::Format::U) 
+    { // lui rd, imm
+        rd_s = bitset<5>(registerToInt(operands[1])).to_string();
+        imm_s = bitset<20>(stringToLong(operands[2])).to_string(); 
+        // funct3 and funct7 remain "NULL"
+    }
+    else if (info.format == InstructionInfo::Format::UJ) 
+    { // jal rd, label
+        rd_s = bitset<5>(registerToInt(operands[1])).to_string();
+        imm_s = bitset<21>(offset).to_string();
+        //funct3 and funct7 remain NULL
+    }
+
+    if (info.format == InstructionInfo::Format::I || info.format == InstructionInfo::Format::U || info.format == InstructionInfo::Format::UJ) {
+        //these don't include rs2
+        //opcode-funct3-funct7-rd-rs1-immediate
+        return "# " + opcode + "-" + funct3 + "-" + funct7 + "-" + rd_s + "-" + rs1_s + "-" + imm_s;
+    } 
+    else 
+    {
+        // R, S, and SB use all 7 fields
+        //opcode-funct3-funct7-rd-rs1-rs2-immediate
+        return "# " + opcode + "-" + funct3 + "-" + funct7 + "-" + rd_s + "-" + rs1_s + "-" + rs2_s + "-" + imm_s;
+    }
+}
+/*
 //create the debug string
+//printing 7 fields for all types
 string getDebugString(InstructionInfo& info, vector<string>& operands, long offset = 0) 
 {
     string opcode = info.opcode;
@@ -268,7 +338,7 @@ string getDebugString(InstructionInfo& info, vector<string>& operands, long offs
     //opcode-func3-func7-rd-rs1-rs2-imm
     return "# " + opcode + "-" + funct3 + "-" + funct7 + "-" + rd_s + "-" + rs1_s + "-" + rs2_s + "-" + imm_s;
 }
-
+*/
 //build machine code for r-formay
 uint32_t assemble_R_format(const InstructionInfo& info, const vector<string>& operands) {
     uint32_t machineCode = 0;
@@ -463,7 +533,206 @@ uint32_t assemble(const InstructionInfo& info, const vector<string>& operands, l
             return 0xDEADBEEF; // Error code
     }
 }
+int main() 
+{
+    string inputFilename = "input.asm";
+    string outputFilename = "output.mc";
 
+    //build symbil table
+    cout << "Starting Pass 1: Building Symbol Table..." << endl;
+    ifstream inputFile_pass1(inputFilename);
+    string line;
+    long currentAddress = 0x00000000;
+    long dataAddress = 0x10000000;
+    bool inTextSegment = true;
+
+    if (!inputFile_pass1.is_open()) 
+    {
+        cerr << "Error: Could not open input file " << inputFilename << endl;
+        return 1;
+    }
+
+    while (getline(inputFile_pass1, line)) 
+    {
+        line = cleanLine(line);
+        if (line == ".data") 
+        { inTextSegment = false; 
+            continue; }
+        if (line == ".text") 
+        { inTextSegment = true; 
+            continue; }
+        size_t colon = line.find(':');
+        if (colon != string::npos) 
+        {
+            string label = line.substr(0, colon);
+            label = trim(label);
+            symbolTable[label] = inTextSegment ? currentAddress: dataAddress;
+            line = line.substr(colon + 1);
+            line = trim(line);
+        }
+        if (line.empty()) continue; 
+        if (inTextSegment) 
+        {
+            currentAddress += 4;
+        } 
+        else 
+        {
+            vector<string> operands = parseOperands(line);
+            if (operands.empty()) continue;
+            string directive = operands[0];
+            if (directive == ".byte") dataAddress += 1;
+            else if (directive == ".half") dataAddress += 2;
+            else if (directive == ".word") dataAddress += 4;
+            else if (directive == ".dword") dataAddress += 8;
+            else if (directive == ".asciz") {
+                size_t firstQuote = line.find('\"');
+                size_t lastQuote = line.rfind('\"');
+                if (firstQuote != string::npos && lastQuote != string::npos && firstQuote != lastQuote) {
+                    string strData = line.substr(firstQuote + 1, lastQuote - firstQuote - 1);
+                    dataAddress += strData.length() + 1;
+                }
+            }
+        }
+    }
+    inputFile_pass1.close();
+    cout << "Pass 1 complete. Symbol Table:" << endl;
+    for (const auto& [label, address]: symbolTable) {
+        cout << "  " << label << ": " << Hexa(address, 0) << endl;
+    }
+
+    //generate machine Code
+    cout << "Starting Pass 2: Generating Machine Code..." << endl;
+    ifstream inputFile_pass2(inputFilename);
+    ofstream outputFile(outputFilename);
+    
+    if (!inputFile_pass2.is_open() || !outputFile.is_open()) {
+        cerr << "Error: Could not open input/output files for Pass 2" << endl;
+        return 1;
+    }
+
+    currentAddress = 0x00000000; //reset text address
+    inTextSegment = true;        //start by assuming we are in .text
+
+    while (getline(inputFile_pass2, line)) {
+        string cleaned = cleanLine(line);
+        if (cleaned == ".data") { inTextSegment = false; continue; }
+        if (cleaned == ".text") { inTextSegment = true; continue; }
+        if (cleaned.find(':') != string::npos)
+         {
+            cleaned = cleaned.substr(cleaned.find(':') + 1);
+            cleaned = trim(cleaned);
+        }
+        if (cleaned.empty()) continue;
+
+        if (inTextSegment)
+         { // ONLY process lines if we're in .text
+            vector<string> operands = parseOperands(cleaned);
+            if (operands.empty()) continue;
+            string instName = operands[0];
+
+            if (instructionMap.count(instName))
+             {
+                uint32_t machineCode = assemble(instructionMap[instName], operands, currentAddress, symbolTable);
+                string compressedAsm = getCompressedAssembly(operands);
+                string debugString = getDebugString(instructionMap[instName], operands, lastOffset);
+
+                outputFile << Hexa(currentAddress, 0) << " " << Hexa(machineCode, 8) << " , " << compressedAsm << " " << debugString << endl;
+                
+                currentAddress += 4;
+            } 
+            else 
+            {
+                cerr << "Warning: Skipping unknown instruction '" << instName << "'" << endl;
+            }
+        }
+    }
+
+    outputFile << Hexa(currentAddress, 0) << " 0xENDDC0DE" << " --End of text segment" << endl;
+//data segment
+    inputFile_pass2.clear();  //clear the End-of-File flag
+    inputFile_pass2.seekg(0); //rewind the file to the beginning
+    
+    dataAddress = 0x10000000; //reset data address
+    inTextSegment = true;     //reset flag to find the .data directive
+    bool wroteDataHeader = false;
+
+    while (getline(inputFile_pass2, line)) 
+    {
+        string cleaned = cleanLine(line);
+
+        if (cleaned == ".data") { inTextSegment = false; continue; }
+        if (cleaned == ".text") { inTextSegment = true; continue; }
+        if (cleaned.find(':') != string::npos) 
+        {
+            cleaned = cleaned.substr(cleaned.find(':') + 1);
+            cleaned = trim(cleaned);
+        }
+        if (cleaned.empty()) continue;
+
+        if (!inTextSegment)
+         { //process lines if we're in .data
+            
+            //print the data segment header just once
+            if (!wroteDataHeader) 
+            {
+                outputFile << endl; // Add a blank line for spacing
+                wroteDataHeader = true;
+            }
+
+            vector<string> operands = parseOperands(cleaned);
+            if (operands.empty()) continue;
+            string directive = operands[0];
+            
+            if (directive == ".asciz") 
+            {
+                outputFile << Hexa(dataAddress, 0) << " ";
+                size_t fq = line.find('\"'), lq = line.rfind('\"');
+                if (fq != string::npos && lq != string::npos && fq != lq) 
+                {
+                    string strData = line.substr(fq + 1, lq - fq - 1);
+                    outputFile << "\"" << strData << "\\0\""; // Show string
+                    dataAddress += strData.length() + 1;
+                }
+                outputFile << endl;
+            } 
+            else 
+            { 
+                string valueStr = operands[1];
+                long value = stringToLong(valueStr);
+                outputFile << Hexa(dataAddress, 0) << " ";
+
+                if (directive == ".byte")
+                 {
+                    outputFile << Hexa(static_cast<uint32_t>(value & 0xFF), 2);
+                    dataAddress += 1;
+                } 
+                else if (directive == ".half")
+                 {
+                    outputFile << Hexa(static_cast<uint32_t>(value & 0xFFFF), 4);
+                    dataAddress += 2;
+                } 
+                else if (directive == ".word")
+                 {
+                    outputFile << Hexa(static_cast<uint32_t>(value & 0xFFFFFFFF), 8);
+                    dataAddress += 4;
+                } 
+                else if (directive == ".dword")
+             {
+                    outputFile << Hexa(static_cast<uint64_t>(value), 16);
+                    dataAddress += 8;
+                }
+                outputFile << endl;
+            }
+        }
+    }
+
+    inputFile_pass2.close();
+    outputFile.close();
+
+    cout << "Pass 2 complete. Output written to " << outputFilename << endl;
+    return 0;
+}
+/*
 int main() 
 {
     string inputFilename = "input.asm";
@@ -747,7 +1016,7 @@ int main()
    //write the termination code
     if (inTextSegment) 
     {
-        outputFile << Hexa(currentAddress,0) << " 0xFEEDC0DE" << " --End of text segment";
+        outputFile << Hexa(currentAddress,0) << " 0xENDDC0DE" << " --End of text segment";
     }
     inputFile_pass2.close();
     outputFile.close();
@@ -755,3 +1024,4 @@ int main()
     cout << "Pass 2 complete. Output written to " << outputFilename << endl;
     return 0;
 }
+*/
