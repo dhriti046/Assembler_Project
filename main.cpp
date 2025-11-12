@@ -14,7 +14,6 @@ using namespace std;
 struct InstructionInfo {
     enum class Format 
     { R, I, S, SB, U, UJ };
-
     string opcode;
     string funct3;
     string funct7;
