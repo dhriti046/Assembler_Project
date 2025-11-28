@@ -163,6 +163,7 @@ int registerToInt(const string& reg)
 }
 
 //check if no. in hex or dec and convert to long
+//stol is converting from hex/dec to dec long int
 long stringToLong(const string& s) 
 {
     if (s.rfind("0x", 0) == 0 || s.rfind("0X", 0) == 0)
@@ -182,7 +183,7 @@ string Hexa(uint64_t value, int num_chars = 0) { // Default to 0
     return ss.str();
 }
 
-
+//the vector type to back to assembly string
 string getCompressedAssembly(vector<string>& operands) {
     if (operands.empty()) return "";
     
@@ -212,6 +213,8 @@ string getCompressedAssembly(vector<string>& operands) {
     }
     return result;
 }
+
+//to get the # string
 string getDebugString(InstructionInfo& info, vector<string>& operands, long offset = 0) 
 {
     string opcode = info.opcode;
@@ -225,7 +228,7 @@ string getDebugString(InstructionInfo& info, vector<string>& operands, long offs
         rd_s = bitset<5>(registerToInt(operands[1])).to_string();
         rs1_s = bitset<5>(registerToInt(operands[2])).to_string();
         rs2_s = bitset<5>(registerToInt(operands[3])).to_string();
-        // imm_s remains "NULL"
+        //imm_s remains "NULL"
     } 
     else if (info.format == InstructionInfo::Format::I) 
     {
@@ -339,13 +342,17 @@ string getDebugString(InstructionInfo& info, vector<string>& operands, long offs
     return "# " + opcode + "-" + funct3 + "-" + funct7 + "-" + rd_s + "-" + rs1_s + "-" + rs2_s + "-" + imm_s;
 }
 */
-//build machine code for r-formay
+//build machine code for r-format
+
 uint32_t assemble_R_format(const InstructionInfo& info, const vector<string>& operands) {
     uint32_t machineCode = 0;
+    //convert operands to register no.
     uint32_t rd  = registerToInt(operands[1]);
     uint32_t rs1 = registerToInt(operands[2]);
     uint32_t rs2 = registerToInt(operands[3]);
     
+   //Convert opcode/funct3/funct7 to integer
+   //so that we can use shift operations to generate machine code
     uint32_t opcode = stoul(info.opcode, nullptr, 2);
     uint32_t funct3 = stoul(info.funct3, nullptr, 2);
     uint32_t funct7 = stoul(info.funct7, nullptr, 2);
@@ -366,13 +373,15 @@ uint32_t assemble_I_format(const InstructionInfo& info,const vector<string>& ope
     long imm = 0;
     const set<string> loadLike = {"lb", "ld", "lh", "lw", "jalr"};
     if (loadLike.count(operands[0])) 
-    { // lw rd, imm(rs1)
+    { 
+        //lw rd, imm(rs1)
         rd  = registerToInt(operands[1]);
         imm = stringToLong(operands[2]);
         rs1 = registerToInt(operands[3]);
     } 
     else 
-    { // addi rd, rs1, imm
+    { 
+        //addi rd, rs1, imm
         rd  = registerToInt(operands[1]);
         rs1 = registerToInt(operands[2]);
         imm = stringToLong(operands[3]);
@@ -390,7 +399,8 @@ uint32_t assemble_I_format(const InstructionInfo& info,const vector<string>& ope
 }
 
 // S-Format
-uint32_t assemble_S_format(const InstructionInfo& info,const vector<string>& operands) {
+uint32_t assemble_S_format(const InstructionInfo& info,const vector<string>& operands) 
+{
     uint32_t machineCode = 0;
     //[imm[11:5],rs2,rs1,funct3,imm[4:0],opcode]
     uint32_t rs2 = registerToInt(operands[1]); // sw rs2, imm(rs1)
@@ -415,7 +425,8 @@ uint32_t assemble_S_format(const InstructionInfo& info,const vector<string>& ope
 
 
 // SB-Format
-uint32_t assemble_SB_format(const InstructionInfo& info,const vector<string>& operands, long currentAddress, const map<string, long>& symbolTable) {
+uint32_t assemble_SB_format(const InstructionInfo& info,const vector<string>& operands, long currentAddress, const map<string, long>& symbolTable) 
+{
     uint32_t machineCode = 0;
 
     uint32_t rs1 = registerToInt(operands[1]);
@@ -465,9 +476,9 @@ uint32_t assemble_U_format(const InstructionInfo& info, const vector<string>& op
     return machineCode;
 }
 
-
 //UJ-Format (jal)
-uint32_t assemble_UJ_format(const InstructionInfo& info, const vector<string>& operands, long currentAddress, const map<string, long>& symbolTable) {
+uint32_t assemble_UJ_format(const InstructionInfo& info, const vector<string>& operands, long currentAddress, const map<string, long>& symbolTable) 
+{
     uint32_t machineCode = 0;
     uint32_t rd = registerToInt(operands[1]);
     string label = operands[2];
@@ -498,8 +509,11 @@ uint32_t assemble_UJ_format(const InstructionInfo& info, const vector<string>& o
 
 //to stores the offset for branch/jump inst
 long lastOffset = 0; 
-uint32_t assemble(const InstructionInfo& info, const vector<string>& operands, long currentAddress, const map<string, long>& symbolTable) {
-    lastOffset = 0; //reset offset
+uint32_t assemble(const InstructionInfo& info, const vector<string>& operands, long currentAddress, const map<string, long>& symbolTable) 
+{
+   
+   //lastOFfset stores the branch/jump target offset 
+   lastOffset = 0; //reset offset
     switch (info.format) 
     {
         case InstructionInfo::Format::R:
@@ -529,16 +543,17 @@ uint32_t assemble(const InstructionInfo& info, const vector<string>& operands, l
             return assemble_UJ_format(info, operands, currentAddress, symbolTable);
         }
         default:
-            cerr << "Error: Unknown instruction format for " << operands[0] << endl;
-            return 0xDEADBEEF; // Error code
+            cerr << "Error:Unknown instruction format for " << operands[0] << endl;
+            return 0xDEADBEEF; // Error
     }
 }
+
 int main() 
 {
     string inputFilename = "input.asm";
     string outputFilename = "output.mc";
 
-    //build symbil table
+    //build symbol table
     cout << "Starting Pass 1: Building Symbol Table..." << endl;
     ifstream inputFile_pass1(inputFilename);
     string line;
@@ -548,7 +563,7 @@ int main()
 
     if (!inputFile_pass1.is_open()) 
     {
-        cerr << "Error: Could not open input file " << inputFilename << endl;
+        cerr << "Error:Could not open input file " << inputFilename << endl;
         return 1;
     }
 
@@ -562,6 +577,8 @@ int main()
         { inTextSegment = true; 
             continue; }
         size_t colon = line.find(':');
+        //label found or not
+        //if found,put it in symbol table with current address/data address
         if (colon != string::npos) 
         {
             string label = line.substr(0, colon);
@@ -575,16 +592,19 @@ int main()
         {
             currentAddress += 4;
         } 
+        //if inside data segment
         else 
         {
             vector<string> operands = parseOperands(line);
             if (operands.empty()) continue;
             string directive = operands[0];
+            //update data address based on directive
             if (directive == ".byte") dataAddress += 1;
             else if (directive == ".half") dataAddress += 2;
             else if (directive == ".word") dataAddress += 4;
             else if (directive == ".dword") dataAddress += 8;
-            else if (directive == ".asciz") {
+            else if (directive == ".asciz") 
+            {
                 size_t firstQuote = line.find('\"');
                 size_t lastQuote = line.rfind('\"');
                 if (firstQuote != string::npos && lastQuote != string::npos && firstQuote != lastQuote) {
@@ -606,17 +626,19 @@ int main()
     ofstream outputFile(outputFilename);
     
     if (!inputFile_pass2.is_open() || !outputFile.is_open()) {
-        cerr << "Error: Could not open input/output files for Pass 2" << endl;
+        cerr << "Error:cant open input/output files for Pass 2" << endl;
         return 1;
     }
 
     currentAddress = 0x00000000; //reset text address
-    inTextSegment = true;        //start by assuming we are in .text
+    inTextSegment = true;//start by assuming we are in .text
 
     while (getline(inputFile_pass2, line)) {
         string cleaned = cleanLine(line);
         if (cleaned == ".data") { inTextSegment = false; continue; }
         if (cleaned == ".text") { inTextSegment = true; continue; }
+
+        //remove labels
         if (cleaned.find(':') != string::npos)
          {
             cleaned = cleaned.substr(cleaned.find(':') + 1);
@@ -625,33 +647,43 @@ int main()
         if (cleaned.empty()) continue;
 
         if (inTextSegment)
-         { // ONLY process lines if we're in .text
+         { //only process lines if we're in .text
+            //seperate the instruction operation and operands
             vector<string> operands = parseOperands(cleaned);
             if (operands.empty()) continue;
+            //get instruction name that would be first element of operands
             string instName = operands[0];
+
 
             if (instructionMap.count(instName))
              {
+                //get machine code
                 uint32_t machineCode = assemble(instructionMap[instName], operands, currentAddress, symbolTable);
+                //get compressed assembly string
                 string compressedAsm = getCompressedAssembly(operands);
+                //get debug string
                 string debugString = getDebugString(instructionMap[instName], operands, lastOffset);
 
+                //write to output file
                 outputFile << Hexa(currentAddress, 0) << " " << Hexa(machineCode, 8) << " , " << compressedAsm << " " << debugString << endl;
                 
+                //next instruction address
                 currentAddress += 4;
             } 
             else 
             {
-                cerr << "Warning: Skipping unknown instruction '" << instName << "'" << endl;
+                cerr << "warning-skipping unknown instruction '" << instName << "'" << endl;
             }
         }
     }
 
-    outputFile << Hexa(currentAddress, 0) << " 0xENDDC0DE" << " --End of text segment" << endl;
+    outputFile << Hexa(currentAddress, 0) << " 0xENDDC0DE" << " End of text segment" << endl;
 //data segment
-    inputFile_pass2.clear();  //clear the End-of-File flag
+    inputFile_pass2.clear(); //clear the End-of-File flag
     inputFile_pass2.seekg(0); //rewind the file to the beginning
     
+    //now we will work on the data segment
+
     dataAddress = 0x10000000; //reset data address
     inTextSegment = true;     //reset flag to find the .data directive
     bool wroteDataHeader = false;
@@ -662,6 +694,7 @@ int main()
 
         if (cleaned == ".data") { inTextSegment = false; continue; }
         if (cleaned == ".text") { inTextSegment = true; continue; }
+        //remove labels
         if (cleaned.find(':') != string::npos) 
         {
             cleaned = cleaned.substr(cleaned.find(':') + 1);
@@ -672,17 +705,20 @@ int main()
         if (!inTextSegment)
          { //process lines if we're in .data
             
-            //print the data segment header just once
+            //add a line to separate text and data segment
             if (!wroteDataHeader) 
             {
                 outputFile << endl; // Add a blank line for spacing
                 wroteDataHeader = true;
             }
 
+            //separate the directive and operands
             vector<string> operands = parseOperands(cleaned);
+
             if (operands.empty()) continue;
             string directive = operands[0];
             
+            //print data based on directive
             if (directive == ".asciz") 
             {
                 outputFile << Hexa(dataAddress, 0) << " ";
@@ -690,6 +726,8 @@ int main()
                 if (fq != string::npos && lq != string::npos && fq != lq) 
                 {
                     string strData = line.substr(fq + 1, lq - fq - 1);
+
+                    //null char at the end of string
                     outputFile << "\"" << strData << "\\0\""; // Show string
                     dataAddress += strData.length() + 1;
                 }
